@@ -112,15 +112,41 @@ Flow parameters passed in request data.
 
         # Test every second until query is done
         while(-Not $Done){
-            $Search = Invoke-WebRequest -Method GET -URI $SearchURI -Headers $XSRFTOKEN -WebSession $apisession
-            $Response = $Search | ConvertFrom-Json
-            Write-Host "`rCompletion:"$Response.data.query.percentComplete -NoNewline
-            if($Response.data.query.percentComplete -eq 100.0){
-                $Done = $true
-                Write-Host
-            }else{
-                # Setting to 5 seconds to not overload the connection
-                Start-Sleep(5)
+            try{
+                $Search = Invoke-WebRequest -Method GET -URI $SearchURI -Headers $XSRFTOKEN -WebSession $apisession
+                if($Search.StatusCode -eq 200){
+                    $Response = $Search | ConvertFrom-Json
+                    Write-Host "`rCompletion:"$Response.data.query.percentComplete -NoNewline
+                    if($Response.data.query.percentComplete -eq 100.0){
+                        $Done = $true
+                        Write-Host
+                    }else{
+                        # Set to one second. Re-authenticating connection fixes time outs. 
+                        Start-Sleep(1)
+                    }
+                }
+            }catch{
+                # Attempt to re auth
+                # Should turn the auth portion into a separate function...
+                Write-Host "`n"
+                Write-Host "Connection Error: Attempting to Re-Authenticate..."
+                $AuthResponse = Invoke-WebRequest -Body $AuthHeaders -Uri $Authurl -SessionVariable apisession -Method POST
+                if($AuthResponse.StatusCode -eq 200){
+                    Write-Host "Authentication Successful`n"
+
+                    # Get the cookies
+                    $cookies = $apisession.Cookies.GetCookies($Authurl) 
+                    foreach($x in $cookies){
+
+                        # Create a header for the XSRF token
+                        if($x.name -eq "XSRF-TOKEN"){
+                            $XSRFTOKEN =@{"X-XSRF-TOKEN"=$x.value}
+                        }
+                    }
+                }else{
+                    Write-Host "Logon failed with" $AuthResponse.StatusCode
+                    exit
+                }
             }
         }
 

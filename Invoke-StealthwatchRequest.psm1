@@ -67,7 +67,7 @@ Flow parameters passed in request data.
     }
 
     # BaseURL is the only thing that gets updated
-    $BaseURL = "<YourInstanceURLHere>"
+    $BaseURL = "<YourInstanceURL>"
     $Authurl = $BaseURL+"/token/v2/authenticate"
     $RequestURI = $BaseURL+"/sw-reporting/v2/tenants/$Tenant/flows/queries"
     
@@ -114,10 +114,13 @@ Flow parameters passed in request data.
         while(-Not $Done){
             $Search = Invoke-WebRequest -Method GET -URI $SearchURI -Headers $XSRFTOKEN -WebSession $apisession
             $Response = $Search | ConvertFrom-Json
+            Write-Host "`rCompletion:"$Response.data.query.percentComplete -NoNewline
             if($Response.data.query.percentComplete -eq 100.0){
                 $Done = $true
+                Write-Host
             }else{
-                Start-Sleep(1)
+                # Setting to 5 seconds to not overload the connection
+                Start-Sleep(5)
             }
         }
 
